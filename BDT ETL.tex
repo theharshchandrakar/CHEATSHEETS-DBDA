@@ -1,0 +1,664 @@
+\documentclass[11pt, onecolumn, a4paper]{article}
+\usepackage[margin=0.75in]{geometry}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+  backgroundcolor=\color{gray!10},
+  frame=single,
+  rulecolor=\color{gray}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\textit{CCEE Exam Prep}}
+\lhead{\textbf{Big Data Technologies}}
+\cfoot{\thepage}
+
+\title{\textbf{BIG DATA TECHNOLOGIES} \\ \large Comprehensive Cheatsheet for CCEE Exam \\ Sessions 12--19}
+\author{Study Guide}
+\date{January 2026}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{SESSION 12: HADOOP ETL DEVELOPMENT}
+
+\subsection{ETL Process Overview}
+
+\textbf{ETL = Extract $\rightarrow$ Transform $\rightarrow$ Load}
+
+\begin{itemize}
+  \item \textbf{Extract:} Pull data from OLTP DBs, logs, CSV/JSON files, APIs, message queues $\rightarrow$ HDFS landing zone
+  \item \textbf{Transform:} Clean (remove nulls, fix formats), enrich (lookups, joins), aggregate, filter, deduplicate, validate using MapReduce/Hive/Pig/Spark
+  \item \textbf{Load:} Store final data into Hive tables, HBase, NoSQL, or downstream RDBMS via connectors (Sqoop)
+\end{itemize}
+
+\subsection{ELT (Extract--Load--Transform) Pattern}
+
+Load all raw data into Hadoop data lake first, then build multiple views/data marts later. Common in big data: flexibility to transform data on-demand for different use cases.
+
+\subsection{Typical ETL Functions}
+
+\begin{itemize}
+  \item Data cleaning: handle missing values, invalid codes, type conversions
+  \item Data integration: joins across sources, key mapping
+  \item Data transformation: derived fields (qty $\times$ price), aggregations (SUM, COUNT, AVG, MIN, MAX), sorting, filtering, normalization
+  \item Data quality: deduplication, constraint checks, validation rules
+\end{itemize}
+
+\subsection{Data Extraction in Hadoop}
+
+\begin{itemize}
+  \item From relational DBs: \textbf{Sqoop} or custom connectors/export jobs
+  \item From files/logs: \textbf{Flume, Kafka, custom ingestion} to HDFS
+  \item From streams: Kafka + Spark/Flink for near real-time ETL
+\end{itemize}
+
+\subsection{Why Use ETL Tools (vs hand-coded MapReduce)}
+
+\begin{itemize}
+  \item \textbf{Productivity}: Drag--drop or SQL-based design instead of low-level code
+  \item \textbf{Reusability \& maintenance}: Centralized job definitions, versioning, documentation
+  \item \textbf{Orchestration}: Workflows with dependencies, retries, scheduling, logging, alerts
+  \item \textbf{Data quality}: Built-in profiling, validation, error-handling
+  \item \textbf{Connectivity}: Ready-made connectors for DBs, SaaS, files, streams, cloud storage
+\end{itemize}
+
+\subsection{Advantages of ETL Tools on Hadoop/Cloud}
+
+\begin{itemize}
+  \item \textbf{Automation}: Scheduling, monitoring, automatic reruns reduce errors
+  \item \textbf{Scalability}: Leverage Hadoop/Spark, scale with cluster size
+  \item \textbf{Performance}: Parallel data flows, pushdown optimization, cluster-aware execution
+  \item \textbf{Cost-effectiveness}: Commodity hardware + open-source stack; pay-as-you-go cloud models
+  \item \textbf{Flexibility}: Support structured, semi-structured, unstructured data (CSV, JSON, logs, images, etc.)
+\end{itemize}
+
+\newpage
+\section{SESSION 13: HBASE INTRODUCTION}
+
+\subsection{HBase Overview}
+
+\textbf{Distributed, column-oriented NoSQL database} on HDFS. For fast random reads/writes (online access), not batch/stream like HDFS. Ideal for time-series data, clickstreams, IoT metrics, user profiles, random read/write with high throughput.
+
+\subsection{Data Model (Key Terms for MCQs)}
+
+\begin{itemize}
+  \item \textbf{Table} $\rightarrow$ rows
+  \item \textbf{Row key} $\rightarrow$ sorted lexicographically; unique identifier for each row
+  \item \textbf{Column family} $\rightarrow$ logical group of columns; defined at schema level; stored together on disk
+  \item \textbf{Column qualifier} $\rightarrow$ specific column inside a family (dynamic, can vary per row)
+  \item \textbf{Cell} = (row key, column family, column qualifier, timestamp) $\rightarrow$ value
+  \item \textbf{Versions} $\rightarrow$ identified by timestamp; each cell can have multiple timestamped versions
+\end{itemize}
+
+\subsection{HBase Architecture}
+
+\begin{itemize}
+  \item \textbf{HMaster}: Lightweight master managing cluster, assigning regions to RegionServers, DDL (create/alter/delete), load balancing
+  \item \textbf{RegionServer (HRegionServer)}: Worker serving read/write requests for assigned regions
+  \begin{itemize}
+    \item \textbf{MemStore}: Write cache in RAM
+    \item \textbf{HFile}: On-disk store in HDFS
+    \item \textbf{BlockCache}: Read cache
+    \item \textbf{WAL (Write-Ahead Log)}: Durability log
+  \end{itemize}
+  \item \textbf{ZooKeeper}: Coordination service for master election, server registration, metadata discovery by clients
+  \item \textbf{Regions}: Horizontal partitions (row-key ranges) of a table
+  \begin{itemize}
+    \item Each region served by one RegionServer at a time
+    \item Automatically split when too large for load distribution
+  \end{itemize}
+\end{itemize}
+
+\subsection{Installation Conceptual Steps}
+
+\begin{enumerate}
+  \item \textbf{Prerequisites}: Working Hadoop cluster (HDFS), ZooKeeper ensemble
+  \item \textbf{Configuration}: Download HBase, configure \texttt{hbase-site.xml} pointing to HDFS and ZooKeeper
+  \item \textbf{Start services}: Start ZooKeeper, HMaster, RegionServers
+  \item \textbf{Verify}: Use HBase shell (\texttt{create}, \texttt{list}, \texttt{put}, \texttt{get}, \texttt{scan}) to verify
+\end{enumerate}
+
+\subsection{Installation Modes}
+
+\begin{itemize}
+  \item \textbf{Standalone}: Single JVM, local file system (dev only)
+  \item \textbf{Pseudo-distributed}: All daemons on one machine with HDFS (testing)
+  \item \textbf{Fully distributed}: Multi-node cluster with HDFS and ZooKeeper (production)
+\end{itemize}
+
+\newpage
+\section{SESSION 14: HBASE ADMIN, OPERATIONS \& SECURITY}
+
+\subsection{HBase Shell: Administrative (DDL) Commands}
+
+\begin{itemize}
+  \item \texttt{create 't1', 'cf1','cf2'} -- Create table with column families
+  \item \texttt{disable 't1'}, \texttt{enable 't1'} -- Change table state
+  \item \texttt{alter 't1', \{NAME => 'cf1', VERSIONS => 3\}} -- Modify schema
+  \item \texttt{describe 't1'} -- Show table schema
+  \item \texttt{drop 't1'} -- Delete table (removes metadata and data)
+\end{itemize}
+
+\subsection{HBase Shell: Data (CRUD/DML) Commands}
+
+\begin{itemize}
+  \item \texttt{put 't1','row1','cf1:col1','value1'} -- Create/Update
+  \item \texttt{get 't1','row1'} -- Read one row
+  \item \texttt{scan 't1'} -- Read many rows (can specify filters, columns, LIMIT)
+  \item \texttt{delete 't1','row1','cf1:col1'} or \texttt{deleteall 't1','row1'} -- Delete
+  \item \texttt{count 't1'} -- Count rows
+  \item \texttt{truncate 't1'} -- Disable, drop, recreate table (clears data, keeps structure)
+\end{itemize}
+
+\subsection{Java Client API (org.apache.hadoop.hbase.client) -- DML/CRUD}
+
+\begin{itemize}
+  \item \texttt{Connection} / \texttt{ConnectionFactory} -- Create cluster connection
+  \item \texttt{Table} -- Logical handle to HBase table
+  \item \texttt{Put} -- Create/update row
+  \item \texttt{Get} -- Retrieve row or specific columns
+  \item \texttt{Delete} -- Delete columns/rows
+  \item \texttt{Scan} -- Iterate over ranges of rows
+  \item \texttt{Result} -- Represents data returned from Get/Scan
+\end{itemize}
+
+\subsection{HBase Admin API (HBaseAdmin / Admin) -- DDL}
+
+\begin{itemize}
+  \item \texttt{admin.createTable(...)} -- Create table
+  \item Disable/enable table
+  \item Add/modify/delete column families
+  \item Get table descriptors, list tables
+\end{itemize}
+
+\subsection{HBase Security}
+
+\begin{itemize}
+  \item \textbf{Authentication}: \textbf{Kerberos-based} with SASL at RPC level; only authenticated users/clients can communicate with HBase
+  \item \textbf{Authorization}: Implemented via \textbf{Access Controller / ACL coprocessor}
+  \begin{itemize}
+    \item Grants permissions: R (Read), W (Write), X (Execute), C (Create), A (Admin) at table/family/qualifier level
+    \item \texttt{grant 'user','RWXCA','table','cf','col'} -- Grant permissions
+    \item \texttt{revoke 'user','table'} -- Remove permissions
+  \end{itemize}
+\end{itemize}
+
+\newpage
+\section{SESSION 16: HIVE DATA WAREHOUSE -- INTRODUCTION}
+
+\subsection{Hive Overview}
+
+\textbf{Data warehouse system on Hadoop} using SQL-like queries (HiveQL) over HDFS. For \textbf{batch analytics} (OLAP), not OLTP. Created at Facebook to let analysts write SQL over massive log data.
+
+\subsection{Hive Architecture Components}
+
+\begin{itemize}
+  \item \textbf{HiveQL}: SQL-like query language
+  \item \textbf{Driver}: Receives query, manages session, coordinates execution (parser + planner + optimizer)
+  \item \textbf{Compiler}: Parses query, performs semantic analysis, generates execution plan
+  \item \textbf{Metastore}: RDBMS-backed metadata store (table schemas, partitions, locations, SerDe info)
+  \item \textbf{Execution engine}: Converts plan to jobs on Hadoop: MapReduce / Tez / Spark
+  \item \textbf{HiveServer2 / Clients}: JDBC/ODBC/CLI interfaces for apps and users
+\end{itemize}
+
+\subsection{Hive Installation (Conceptual)}
+
+\begin{enumerate}
+  \item Install Hadoop (HDFS/YARN)
+  \item Install Hive binaries
+  \item Configure metastore DB (MySQL/PostgreSQL/Derby) and \texttt{hive-site.xml}
+  \item Start metastore service and HiveServer2
+  \item Connect via CLI or Beeline; run HiveQL queries
+\end{enumerate}
+
+\subsection{Hive vs Traditional RDBMS}
+
+\begin{center}
+\begin{tabular}{|l|p{3cm}|p{3cm}|}
+\hline
+\textbf{Aspect} & \textbf{HIVE} & \textbf{RDBMS} \\
+\hline
+Workload & OLAP/batch; scans huge datasets & OLTP; many small reads/writes \\
+\hline
+Latency & High (batch); startup cost & Low; interactive \\
+\hline
+Storage & HDFS; horizontal scale to TB--PB & Local/RAID; vertical scale; indexes \\
+\hline
+Schema & Schema-on-read; data dumped first & Schema-on-write; schema enforced at insert \\
+\hline
+Execution & Distributed jobs (MR/Tez/Spark) & Single server/cluster, low-latency engine \\
+\hline
+Transactions & No strict row-level ACID & Strict ACID by default \\
+\hline
+\end{tabular}
+\end{center}
+
+\newpage
+\section{SESSION 17: WORKING WITH HIVE QL}
+
+\subsection{Datatypes}
+
+\textbf{Primitive Types:}
+\begin{itemize}
+  \item Numeric: TINYINT, SMALLINT, INT, BIGINT, FLOAT, DOUBLE, DECIMAL
+  \item String: STRING, VARCHAR, CHAR
+  \item Date/time: DATE, TIMESTAMP
+  \item Boolean: BOOLEAN
+\end{itemize}
+
+\textbf{Complex Types:}
+\begin{itemize}
+  \item ARRAY$<$type$>$
+  \item MAP$<$key\_type, value\_type$>$
+  \item STRUCT$<$field1:type1, field2:type2, ...$>$
+  \item UNIONTYPE
+\end{itemize}
+
+\subsection{Operators \& Built-in Functions}
+
+\begin{itemize}
+  \item \textbf{Relational}: =, !=, $<$, $<$=, $>$, $>$=
+  \item \textbf{Arithmetic}: +, -, *, /, \%
+  \item \textbf{Logical}: AND, OR, NOT
+  \item \textbf{String}: LIKE, RLIKE, CONCAT, SUBSTR, LENGTH, UPPER, LOWER, TRIM
+  \item \textbf{Aggregate}: SUM, COUNT, AVG, MIN, MAX, STDDEV
+  \item \textbf{Math}: FLOOR, CEIL, ROUND, ABS, SQRT
+\end{itemize}
+
+\subsection{Managed (Internal) Tables}
+
+\begin{itemize}
+  \item Created by default (no \texttt{EXTERNAL} keyword)
+  \item Hive \textbf{owns the data}; stored under warehouse path (e.g., \texttt{/user/hive/warehouse/dbname.db/tablename/})
+  \item \texttt{DROP TABLE} deletes \textbf{both metadata and data} from HDFS
+\end{itemize}
+
+\subsection{External Tables}
+
+\begin{itemize}
+  \item Created with \texttt{CREATE EXTERNAL TABLE ... LOCATION 'path'}
+  \item Hive manages \textbf{only metadata}; data resides in specified location
+  \item \texttt{DROP TABLE} by default removes \textbf{only metadata}, not actual files
+  \item Good for sharing data or data managed by external systems
+\end{itemize}
+
+\subsection{Partitions}
+
+\begin{itemize}
+  \item Directory-level split on partition columns
+  \item Created with \texttt{PARTITIONED BY (dt STRING, region STRING)}
+  \item Data physically stored in subdirectories: \texttt{.../table/dt=2025-01-01/region=IN/}
+  \item \textbf{Partition pruning}: queries filtering on partition columns can skip other partitions $\rightarrow$ major performance boost
+\end{itemize}
+
+\subsection{Buckets}
+
+\begin{itemize}
+  \item File-level split inside partitions
+  \item Created with \texttt{CLUSTERED BY (user\_id) INTO 8 BUCKETS}
+  \item Data hashed on bucket column, written to multiple bucket files
+  \item Helps with sampling, map-side joins, query optimization
+\end{itemize}
+
+\subsection{Storage Formats}
+
+\begin{itemize}
+  \item \textbf{Row-oriented}: TEXTFILE, AVRO (less efficient for analytical scans)
+  \item \textbf{Columnar}: ORC, PARQUET (better compression, faster analytical queries)
+  \item Columnar formats preferred for modern Hive analytics
+\end{itemize}
+
+\subsection{Importing Data (DML Operations)}
+
+\begin{itemize}
+  \item \texttt{LOAD DATA INPATH '/path/file.csv' INTO TABLE t;} -- Move/copy files from HDFS into table location
+  \item \texttt{LOAD DATA LOCAL INPATH 'localfile' INTO TABLE t;} -- From local file system
+  \item External sources via Sqoop, Spark, or ETL tools
+\end{itemize}
+
+\subsection{Altering Tables (DDL)}
+
+\begin{itemize}
+  \item Add partition: \texttt{ALTER TABLE t ADD PARTITION (dt='2025-01-01');}
+  \item Add/replace columns: \texttt{ALTER TABLE t ADD COLUMNS (new\_col STRING);}
+  \item Change properties: \texttt{ALTER TABLE t SET TBLPROPERTIES (...);}
+  \item Change file format: \texttt{ALTER TABLE t SET FILEFORMAT ...;}
+\end{itemize}
+
+\subsection{Dropping Tables}
+
+\texttt{DROP TABLE t;}
+\begin{itemize}
+  \item \textbf{Managed table}: drops metadata + data
+  \item \textbf{External table}: drops metadata only; data files remain
+\end{itemize}
+
+\newpage
+\section{SESSION 18: QUERYING WITH HIVE QL}
+
+\subsection{Sorting Clauses}
+
+\begin{itemize}
+  \item \texttt{ORDER BY} -- \textbf{Global sort} using a single reducer; entire result is totally ordered
+  \item \texttt{SORT BY} -- Sorts data \textbf{per reducer only}; overall output may not be globally sorted
+  \item \texttt{DISTRIBUTE BY} -- Controls which rows go to which reducer (by key)
+  \item \texttt{CLUSTER BY} -- Shorthand for \texttt{DISTRIBUTE BY} + \texttt{SORT BY} on same columns
+\end{itemize}
+
+\subsection{Aggregation with GROUP BY}
+
+\begin{itemize}
+  \item Standard aggregate functions: SUM, COUNT, AVG, MIN, MAX, STDDEV
+  \item \texttt{GROUP BY} groups rows by specified columns
+  \item \texttt{HAVING} filters \textbf{groups after aggregation} (vs \texttt{WHERE} filters rows before grouping)
+\end{itemize}
+
+\subsection{Joins in HiveQL}
+
+\begin{itemize}
+  \item Supported types: INNER, LEFT OUTER, RIGHT OUTER, FULL OUTER, CROSS, SEMI
+  \item Basic syntax: \texttt{SELECT * FROM a JOIN b ON a.id = b.id;}
+  \item \textbf{Reduce-side (common) join / shuffle join}:
+  \begin{itemize}
+    \item All data for a join key shuffled to the same reducer, joined there
+    \item Works for arbitrary-sized tables; involves heavy network shuffle
+  \end{itemize}
+  \item \textbf{Map-side join (MapJoin)}:
+  \begin{itemize}
+    \item One table must be small enough to fit in mapper memory
+    \item Small table loaded on each mapper; mappers stream big table and join locally
+    \item No reduce phase; less shuffle $\rightarrow$ better performance
+    \item Enabled with hint: \texttt{SELECT /*+ MAPJOIN(small\_table) */ ...}
+  \end{itemize}
+\end{itemize}
+
+\subsection{Subqueries}
+
+\begin{itemize}
+  \item \textbf{Subqueries in FROM clause} (derived tables):
+  \begin{itemize}
+    \item Pre-aggregate data before joining
+    \item Calculate top-N per group, then filter on that result
+  \end{itemize}
+  \item \textbf{Subqueries in WHERE clause}:
+  \begin{itemize}
+    \item Scalar subqueries for filtering based on another query result
+  \end{itemize}
+  \item Combine filtering + aggregation in single logical step
+\end{itemize}
+
+\subsection{Views}
+
+\begin{itemize}
+  \item \textbf{Virtual table} defined by a saved query; no separate data storage
+  \item \texttt{CREATE VIEW top\_regions AS SELECT region, SUM(sales) s FROM sales GROUP BY region;}
+  \item Query like a table; underlying base tables are scanned
+  \item Benefits: centralize logic; changes apply to all consumers; simpler interface for complex queries
+\end{itemize}
+
+\subsection{MapReduce Scripts (TRANSFORM Clause)}
+
+\begin{itemize}
+  \item Integrate external scripts in MapReduce-like fashion
+  \item Syntax: \texttt{SELECT TRANSFORM(col1, col2) USING 'myscript.py' AS (out1, out2) FROM t;}
+  \item Script reads tab-delimited input from STDIN, writes output to STDOUT
+  \item Hive handles parallelization and MapReduce plumbing
+  \item Older syntax: \texttt{MAP ... REDUCE ...} clauses
+\end{itemize}
+
+\newpage
+\section{SESSION 19: MORE ON HIVE QL (DATA MANIPULATION, UDFS, SCRIPTS)}
+
+\subsection{Data Manipulation (DML)}
+
+\begin{itemize}
+  \item \texttt{INSERT INTO TABLE t SELECT ...} -- \textbf{Append} data to existing table/partition
+  \item \texttt{INSERT OVERWRITE TABLE t SELECT ...} -- \textbf{Replace} existing data in table/partition
+  \item \texttt{LOAD DATA INPATH 'hdfs\_path' INTO TABLE t} -- Move/copy files into table (append at file level)
+  \item HDFS is write-once; updates/deletes done by rewriting partitions with \texttt{INSERT OVERWRITE}
+\end{itemize}
+
+\subsection{User-Defined Functions (UDFs)}
+
+\textbf{Types:}
+\begin{itemize}
+  \item \textbf{UDF}: Scalar function (row-by-row transformation)
+  \item \textbf{UDAF}: Aggregate function (e.g., custom SUM-like behavior)
+  \item \textbf{UDTF}: Table-generating function (expands one row into multiple rows)
+\end{itemize}
+
+\textbf{Registration:}
+\begin{enumerate}
+  \item \texttt{ADD JAR /path/myudf.jar;}
+  \item \texttt{CREATE TEMPORARY FUNCTION myfunc AS 'com.example.MyUdf';}
+  \begin{itemize}
+    \item Temporary functions live for the session only
+    \item Permanent functions stored in metastore (version-dependent)
+  \end{itemize}
+\end{enumerate}
+
+\subsection{Custom MapReduce in Hive}
+
+\begin{itemize}
+  \item Via \texttt{TRANSFORM}, \texttt{MAP}, \texttt{REDUCE} clauses
+  \item Script acts as mapper/reducer: reads tab-delimited STDIN, writes tab-delimited STDOUT
+  \item Hive distributes and manages MapReduce execution
+  \item Allows any language (Python, Bash, etc.) for complex transformations
+\end{itemize}
+
+\subsection{Appending Data into Existing Tables}
+
+\begin{itemize}
+  \item \texttt{INSERT INTO TABLE sales SELECT ...;} -- Append into table
+  \item \texttt{INSERT INTO TABLE sales\_p PARTITION (dt='2026-01-05') SELECT ...;} -- Append into partition
+  \item \texttt{LOAD DATA INPATH '/data/file' INTO TABLE sales;} -- Append files
+\end{itemize}
+
+\subsection{Writing HQL Scripts (.hql Files)}
+
+\begin{itemize}
+  \item Put sequence of HiveQL commands in \texttt{.hql} file (each ending with \texttt{;})
+  \item Execute from shell:
+  \begin{itemize}
+    \item \texttt{hive -f myscript.hql}
+    \item \texttt{beeline -f myscript.hql}
+  \end{itemize}
+  \item Used to automate ETL jobs, daily reports, multi-step operations
+  \item Provides reusable, version-controlled pipeline definitions
+  \item Commonly scheduled in production via Oozie, Airflow, or other schedulers
+\end{itemize}
+
+\subsection{Common HiveQL SELECT Clauses (Summary)}
+
+\begin{lstlisting}[language=SQL]
+SELECT columns
+FROM table
+WHERE row_filter
+GROUP BY group_columns
+HAVING group_filter
+ORDER BY / SORT BY / DISTRIBUTE BY / CLUSTER BY columns
+LIMIT count;
+\end{lstlisting}
+
+\newpage
+\section{KEY MCQ TRAPS \& MNEMONICS}
+
+\subsection{ETL vs ELT}
+
+\begin{itemize}
+  \item \textbf{ETL}: Extract $\rightarrow$ Transform $\rightarrow$ Load (traditional DWH)
+  \item \textbf{ELT}: Extract $\rightarrow$ Load $\rightarrow$ Transform (modern data lakes; load all raw data first, transform on-demand)
+\end{itemize}
+
+\subsection{Hive vs RDBMS in One Sentence}
+
+\begin{itemize}
+  \item \textbf{Hive}: ``SQL queries on huge HDFS files executed as distributed batch jobs''
+  \item \textbf{RDBMS}: ``Row-level transactions on indexed local storage at interactive speeds''
+\end{itemize}
+
+\subsection{Managed vs External Table on DROP}
+
+\begin{itemize}
+  \item \textbf{Managed}: \texttt{DROP TABLE} removes metadata \textbf{and} data $\rightarrow$ data gone forever
+  \item \textbf{External}: \texttt{DROP TABLE} removes metadata only $\rightarrow$ data files remain accessible
+\end{itemize}
+
+\subsection{Partitions vs Buckets}
+
+\begin{itemize}
+  \item \textbf{Partitions}: Directory-level split $\rightarrow$ prune entire directories in queries $\rightarrow$ huge performance gains
+  \item \textbf{Buckets}: File-level split within partitions $\rightarrow$ helps joins/sampling, not query pruning
+\end{itemize}
+
+\subsection{Reduce-side vs Map-side Join}
+
+\begin{itemize}
+  \item \textbf{Reduce-side}: Any table size; heavy shuffle (default)
+  \item \textbf{Map-side}: One table must fit mapper memory; minimal shuffle (faster)
+\end{itemize}
+
+\subsection{Sorting Clauses Ranking (Performance Impact)}
+
+\begin{itemize}
+  \item Fastest: \texttt{SORT BY} (per-reducer sort only)
+  \item Medium: \texttt{DISTRIBUTE BY} (partition data, no sort)
+  \item Slowest: \texttt{ORDER BY} (global sort, single reducer bottleneck)
+\end{itemize}
+
+\subsection{Hive Operations Cheat}
+
+\begin{itemize}
+  \item \textbf{DDL (schema)}: CREATE TABLE, ALTER TABLE, DROP TABLE
+  \item \textbf{DML (data)}: INSERT INTO, INSERT OVERWRITE, LOAD DATA
+  \item \textbf{Query}: SELECT with WHERE/GROUP BY/HAVING/ORDER BY
+  \item \textbf{UDF}: Custom Java logic registered via ADD JAR + CREATE FUNCTION
+\end{itemize}
+
+\newpage
+\section{QUICK REFERENCE: ESSENTIAL COMMANDS}
+
+\subsection{HBase Shell (Most Common)}
+
+\begin{lstlisting}
+hbase(main):001:0> create 't1', 'cf1'
+hbase(main):002:0> put 't1', 'row1', 'cf1:col1', 'value1'
+hbase(main):003:0> get 't1', 'row1'
+hbase(main):004:0> scan 't1'
+hbase(main):005:0> count 't1'
+hbase(main):006:0> disable 't1' -> drop 't1'
+\end{lstlisting}
+
+\subsection{Hive QL (Most Common)}
+
+\begin{lstlisting}[language=SQL]
+CREATE TABLE sales (id INT, region STRING, amount DOUBLE);
+LOAD DATA INPATH '/data/sales.csv' INTO TABLE sales;
+SELECT region, SUM(amount) FROM sales WHERE amount > 0 GROUP BY region;
+INSERT OVERWRITE TABLE sales_summary 
+  SELECT region, SUM(amount) FROM sales GROUP BY region;
+CREATE VIEW high_sales AS 
+  SELECT region, amount FROM sales WHERE amount > 5000;
+\end{lstlisting}
+
+\subsection{Hive MapReduce Script Integration}
+
+\begin{lstlisting}[language=SQL]
+SELECT TRANSFORM(col1, col2)
+USING 'myscript.py'
+AS (output1, output2)
+FROM input_table;
+\end{lstlisting}
+
+\subsection{Execute HQL Script}
+
+\begin{lstlisting}[language=bash]
+$ hive -f queries.hql
+$ beeline -f queries.hql
+\end{lstlisting}
+
+\newpage
+\section{EXAM STRATEGY REMINDERS}
+
+\begin{enumerate}
+  \item \textbf{Always distinguish}:
+  \begin{itemize}
+    \item ETL (traditional) vs ELT (data lake pattern)
+    \item Managed vs External tables (especially DROP behavior)
+    \item Reduce-side vs Map-side joins (default vs optimized)
+  \end{itemize}
+
+  \item \textbf{Data model clarity}:
+  \begin{itemize}
+    \item Row keys are sorted lexicographically (HBase)
+    \item Partitions are directories (Hive)
+    \item Buckets are files within partitions (Hive)
+  \end{itemize}
+
+  \item \textbf{Scaling rules}:
+  \begin{itemize}
+    \item HDFS scales via replication + rack awareness
+    \item HBase scales via region splitting
+    \item Hive scales via partitions (prune), buckets, and distributed execution engine
+  \end{itemize}
+
+  \item \textbf{Performance patterns}:
+  \begin{itemize}
+    \item Map-side join $>$ Reduce-side join (when small table fits memory)
+    \item Column-oriented formats (ORC, PARQUET) $>$ row-oriented (TEXT) for analytics
+    \item Partition pruning filters before shuffle (huge savings)
+  \end{itemize}
+
+  \item \textbf{MCQ red flags}:
+  \begin{itemize}
+    \item ``Always'' or ``never'' statements are often wrong
+    \item Details matter: \texttt{DROP TABLE} on managed vs external, \texttt{INSERT INTO} vs \texttt{INSERT OVERWRITE}
+    \item Multiple-correct-answer questions are common
+  \end{itemize}
+\end{enumerate}
+
+\newpage
+\section{FINAL SUMMARY TABLE}
+
+\begin{center}
+\begin{tabular}{|l|l|p{5cm}|}
+\hline
+\textbf{Component} & \textbf{Core Purpose} & \textbf{Key Concepts} \\
+\hline
+ETL & Data pipeline design & Extract, Transform, Load; ELT pattern; Sqoop, Flume, Kafka \\
+\hline
+HBase & Fast random read/write NoSQL & Row keys, column families, regions, RegionServers, WAL, ZooKeeper \\
+\hline
+Hive & Batch SQL analytics on HDFS & Metastore, partitions, buckets, managed/external, MapReduce execution \\
+\hline
+Joins & Combine multiple data sources & Reduce-side (default), map-side (small table in memory) \\
+\hline
+UDFs & Custom logic & Java JARs, ADD JAR, CREATE TEMPORARY FUNCTION \\
+\hline
+Scripts & Automation & HQL files, \texttt{hive -f}, orchestration scheduling \\
+\hline
+\end{tabular}
+\end{center}
+
+\vspace{1cm}
+
+\begin{center}
+\textbf{Good luck on your CCEE exam!} \\
+Study the MCQ patterns, understand the core concepts deeply, \\
+and remember the key differences between similar-sounding terms.
+\end{center}
+
+\end{document}
