@@ -9,3 +9,4 @@ The subjects include
 - OOPS with Java
 - Linux
 - DBMS and RDBMS
+- Data Visualization with Tableau
